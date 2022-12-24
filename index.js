@@ -105,7 +105,20 @@ async function run() {
       app.get('/categories', async (req, res) => {
          const query = {};
          const categories = await categoriesCollection.find(query).toArray();
-         res.send(categories);
+         const data = {};
+         categories.forEach(category => {
+            if (!category.parent_id) {
+               data[category._id] = category;
+            }
+            else {
+               if (data[category.parent_id].children) {
+                  data[category.parent_id].children.push(category)
+               } else {
+                  data[category.parent_id].children = [category];
+               }
+            }
+         })
+         res.send(Object.values(data));
       })
 
 
@@ -119,10 +132,18 @@ async function run() {
 
       // Get Product=============================================
       app.get('/products', async (req, res) => {
-         const category = req.params.category;
-         let query = {};
-         if (category) {
-            query = { catrgory: category }
+         let categoryIds = [];
+         const searchText = req.query.name;
+         if (req.query.categories) {
+            categoryIds = JSON.parse(req.query.categories);
+         }
+         console.log(categoryIds, searchText);
+         let query = { name: new RegExp(searchText, 'i') };
+         if (categoryIds.length > 0) {
+            query.category = {
+               $in: categoryIds,
+
+            }
          }
          const products = await productsCollection.find(query).toArray();
          const prodItem = products.map(product => ({ ...product, image: process.env.SITE_URL + '/' + product.image }))
